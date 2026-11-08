@@ -18,7 +18,7 @@ const adColumns = `id, title, price_cents, photo_url, user_id::text, created_at`
 // DAO is a PostgreSQL-backed ad store.
 type DAO struct {
 	db *sql.DB
-	// tx is set when the DAO is scoped to a transaction opened by WithTx.
+	// tx is set when the DAO is scoped to a transaction opened by Begin.
 	tx *sql.Tx
 }
 

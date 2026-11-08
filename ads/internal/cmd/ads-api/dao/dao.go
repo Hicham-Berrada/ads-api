@@ -34,7 +34,7 @@ type Tx interface {
 	Rollback() error
 }
 
-// SearchAdsRequest describes an ad search. Nil pointers and empty strings mean "no filter on this field".
+// SearchAdsRequest describes an ad search. Zero values mean "no filter on this field".
 type SearchAdsRequest struct {
 	OwnerID       domain.UserID
 	MinPriceCents int64
