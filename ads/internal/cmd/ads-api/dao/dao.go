@@ -2,6 +2,7 @@ package dao
 
 import (
 	"context"
+	"time"
 
 	"github.mpi-internal.com/leboncoin/backend-hiring-assessment/ads/internal/cmd/ads-api/domain"
 )
@@ -16,6 +17,10 @@ type Store interface {
 	SearchAds(ctx context.Context, req SearchAdsRequest) ([]domain.Ad, error)
 	// DeleteAd deletes the ad if it belongs to the owner, or returns ErrNotFound.
 	DeleteAd(ctx context.Context, id domain.AdID, ownerID domain.UserID) error
+	// CreatePublication records that the owner published an ad through POST /ads.
+	CreatePublication(ctx context.Context, id domain.AdID, ownerID domain.UserID) error
+	// CountPublications returns how many ads the owner published over the given period, up to now.
+	CountPublications(ctx context.Context, ownerID domain.UserID, period time.Duration) (int, error)
 }
 
 // DAO stores and retrieves ads.
@@ -28,6 +33,8 @@ type DAO interface {
 // Tx is a Store scoped to an opened transaction.
 type Tx interface {
 	Store
+	// LockOwner makes the other transactions locking the same owner wait until this one ends.
+	LockOwner(ctx context.Context, ownerID domain.UserID) error
 	// Commit applies every change made through the transaction.
 	Commit() error
 	// Rollback discards every change made through the transaction. Calling it on an already committed transaction does nothing, so `defer func() { _ = tx.Rollback() }()` is a safe guard.

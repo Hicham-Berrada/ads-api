@@ -81,6 +81,22 @@ func (d *DAO) Begin(ctx context.Context) (adsdao.Tx, error) {
 	return &DAO{db: d.db, tx: tx}, nil
 }
 
+// LockOwner makes the other transactions locking the same owner wait until this one ends.
+func (d *DAO) LockOwner(ctx context.Context, ownerID domain.UserID) error {
+	if d.tx == nil {
+		return errors.New("unable to lock outside a transaction")
+	}
+
+	// Advisory locks are keyed by a bigint, hence the hash. PostgreSQL releases the lock on commit or rollback.
+	const query = `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`
+
+	if _, err := d.tx.ExecContext(ctx, query, string(ownerID)); err != nil {
+		return fmt.Errorf("unable to lock owner: %w", err)
+	}
+
+	return nil
+}
+
 // Commit applies every change made through the transaction.
 func (d *DAO) Commit() error {
 	if d.tx == nil {
@@ -197,6 +213,33 @@ func (d *DAO) DeleteAd(ctx context.Context, id domain.AdID, ownerID domain.UserI
 	}
 
 	return nil
+}
+
+// CreatePublication records that the owner published an ad through POST /ads.
+func (d *DAO) CreatePublication(ctx context.Context, id domain.AdID, ownerID domain.UserID) error {
+	const query = `INSERT INTO ad_publications (ad_id, user_id) VALUES ($1, $2::uuid)`
+
+	if _, err := d.runner().ExecContext(ctx, query, int64(id), string(ownerID)); err != nil {
+		return fmt.Errorf("unable to record publication: %w", err)
+	}
+
+	return nil
+}
+
+// CountPublications returns how many ads the owner published over the given period, up to now.
+func (d *DAO) CountPublications(ctx context.Context, ownerID domain.UserID, period time.Duration) (int, error) {
+	const query = `
+		SELECT count(*)
+		FROM ad_publications
+		WHERE user_id = $1::uuid
+		  AND published_at > now() - make_interval(secs => $2)`
+
+	var count int
+	if err := d.runner().QueryRowContext(ctx, query, string(ownerID), period.Seconds()).Scan(&count); err != nil {
+		return 0, fmt.Errorf("unable to count publications: %w", err)
+	}
+
+	return count, nil
 }
 
 func scanAd(row *sql.Row) (domain.Ad, error) {

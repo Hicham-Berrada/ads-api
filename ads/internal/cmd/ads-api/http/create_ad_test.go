@@ -113,6 +113,18 @@ func TestHandlerCreateAd(t *testing.T) {
 		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	})
 
+	t.Run("returns 429 when the quota is exceeded", func(t *testing.T) {
+		srv := newCreateAdServer(func(_ context.Context, _ usecase.CreateAdRequest) (domain.AdID, error) {
+			return 0, usecase.ErrQuotaExceeded
+		})
+		defer srv.Close()
+
+		resp := postJSON(t, srv.URL+"/ads", validBody, "user-1")
+		defer resp.Body.Close()
+
+		assert.Equal(t, http.StatusTooManyRequests, resp.StatusCode)
+	})
+
 	t.Run("returns 500 when the usecase errors", func(t *testing.T) {
 		srv := newCreateAdServer(func(_ context.Context, _ usecase.CreateAdRequest) (domain.AdID, error) {
 			return 0, errors.New("db down")

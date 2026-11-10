@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -114,6 +115,18 @@ func TestMock_DeleteAd(t *testing.T) {
 		m.On("DeleteAd", ctx, domain.AdID(7), domain.UserID("user-2")).Return(adsdao.ErrNotFound)
 
 		assert.ErrorIs(t, m.DeleteAd(ctx, 7, "user-2"), adsdao.ErrNotFound)
+	})
+}
+
+func TestMock_CountPublications(t *testing.T) {
+	t.Run("returns configured count", func(t *testing.T) {
+		m := mock.New(t)
+		m.On("CountPublications", ctx, domain.UserID("user-1"), time.Hour).Return(3, nil)
+
+		got, err := m.CountPublications(ctx, "user-1", time.Hour)
+
+		require.NoError(t, err)
+		assert.Equal(t, 3, got)
 	})
 }
 

@@ -2,6 +2,7 @@ package http
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.mpi-internal.com/leboncoin/backend-hiring-assessment/ads/internal/cmd/ads-api/usecase"
@@ -34,7 +35,12 @@ func handlerCreateAd(createAd usecase.CreateAdFunc) http.HandlerFunc {
 			OwnerID:    middleware.UserIDFromRequest(r),
 		})
 		if err != nil {
-			rw.WriteHeader(http.StatusInternalServerError)
+			if errors.Is(err, usecase.ErrQuotaExceeded) {
+				rw.WriteHeader(http.StatusTooManyRequests)
+			} else {
+				rw.WriteHeader(http.StatusInternalServerError)
+			}
+
 			return
 		}
 

@@ -219,6 +219,47 @@ func TestDeleteAd(t *testing.T) {
 	})
 }
 
+func TestCountPublications(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns the count over the period", func(t *testing.T) {
+		dao, mock := newMockDAO(t)
+		mock.ExpectQuery("SELECT count").
+			WithArgs("user-1", float64(86400)).
+			WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(3))
+
+		got, err := dao.CountPublications(ctx, "user-1", 24*time.Hour)
+
+		require.NoError(t, err)
+		assert.Equal(t, 3, got)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("returns error when query fails", func(t *testing.T) {
+		dao, mock := newMockDAO(t)
+		boom := errors.New("db down")
+		mock.ExpectQuery("SELECT count").
+			WithArgs("user-1", float64(86400)).
+			WillReturnError(boom)
+
+		_, err := dao.CountPublications(ctx, "user-1", 24*time.Hour)
+
+		assert.ErrorIs(t, err, boom)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+}
+
+func TestCreatePublication(t *testing.T) {
+	ctx := context.Background()
+	dao, mock := newMockDAO(t)
+	mock.ExpectExec("INSERT INTO ad_publications").
+		WithArgs(int64(7), "user-1").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	require.NoError(t, dao.CreatePublication(ctx, 7, "user-1"))
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestTransaction(t *testing.T) {
 	ctx := context.Background()
 	req := adsdao.CreateAdRequest{
@@ -312,10 +353,27 @@ func TestTransaction(t *testing.T) {
 		require.NoError(t, mock.ExpectationsWereMet())
 	})
 
-	t.Run("refuses commit and rollback outside a transaction", func(t *testing.T) {
+	t.Run("refuses commit, rollback and lock outside a transaction", func(t *testing.T) {
 		dao, _ := newMockDAO(t)
 
 		require.Error(t, dao.Commit())
 		require.Error(t, dao.Rollback())
+		require.Error(t, dao.LockOwner(ctx, "user-1"))
+	})
+
+	t.Run("locks the owner inside the transaction", func(t *testing.T) {
+		dao, mock := newMockDAO(t)
+		mock.ExpectBegin()
+		mock.ExpectExec("SELECT pg_advisory_xact_lock").
+			WithArgs("user-1").
+			WillReturnResult(sqlmock.NewResult(0, 1))
+		mock.ExpectCommit()
+
+		tx, err := dao.Begin(ctx)
+		require.NoError(t, err)
+
+		require.NoError(t, tx.LockOwner(ctx, "user-1"))
+		require.NoError(t, tx.Commit())
+		require.NoError(t, mock.ExpectationsWereMet())
 	})
 }
