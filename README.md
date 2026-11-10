@@ -8,6 +8,8 @@ Once you are satisfied with your work, please send your public repository url to
 
 Please refer to [these instructions](INSTRUCTIONS.md).
 
+My answers and the reasons behind my choices are in [NOTES.md](NOTES.md).
+
 # Ads API
 
 A small Go HTTP API around a single domain: *ads* (classified ads).
@@ -77,3 +79,12 @@ To launch all the tests:
 ```shell
 go test ./...
 ```
+
+A few tests need the real database (quota under concurrent requests, import rollback):
+
+```shell
+docker compose up -d ads-database
+go test -tags integration ./...
+```
+
+The migrations only run when the database is created. If you already had the stack running, recreate it with `docker compose down -v`.

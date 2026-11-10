@@ -86,8 +86,38 @@ paths:
           description: Malformed or unknown request body field.
         "401":
           description: Missing Authorization header.
+        "429":
+          description: The caller already published 5 ads in the last 24 hours. Imported ads do not count.
         "500":
           description: Unexpected server error.
+
+  /ads/import:
+    post:
+      summary: Import several ads at once
+      description: All the ads are created, or none of them. The publication quota does not apply.
+      operationId: importAds
+      tags: [ads]
+      security:
+        - userID: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportAdsBody"
+      responses:
+        "201":
+          description: Ads created. The identifiers are in the order of the request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportAdsResponse"
+        "400":
+          description: Malformed or unknown request body field.
+        "401":
+          description: Missing Authorization header.
+        "500":
+          description: Unexpected server error. No ad was created.
 
   /ads/{adID}:
     get:
@@ -213,6 +243,25 @@ components:
         photo_url:
           type: string
           example: https://example.com/bike.jpg
+
+    ImportAdsBody:
+      type: object
+      required: [ads]
+      properties:
+        ads:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreateAdBody"
+
+    ImportAdsResponse:
+      type: object
+      required: [ids]
+      properties:
+        ids:
+          type: array
+          items:
+            type: integer
+            format: int64
 
     CreateAdResponse:
       type: object
